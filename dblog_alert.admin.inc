@@ -1,4 +1,5 @@
 <?php
+
 /**
  * @file
  * Provide callback functions for the administrative interface for the Database
@@ -20,13 +21,13 @@ function _dblog_alert_settings() {
   foreach (dblog_filters() as $filter) {
     $header[] = $filter['title'];
   }
-  $header += array(
+  $header = array_merge($header, array(
     array('data' => t('Role'), 'field' => 'daa.role', 'sort' => 'asc'),
     array('data' => t('Show Repeated Alerts'), 'field' => 'daa.repeat_alert'),
     array('data' => t('Dismiss Automatically'), 'field' => 'daa.auto_dismiss'),
     array('data' => t('Dismiss for All'), 'field' => 'daa.dismiss_for_all'),
     t('Operations'),
-  );
+  ));
 
   $results = db_select('dblog_alert_alerts', 'daa')
       ->extend('PagerDefault')
@@ -63,13 +64,13 @@ function _dblog_alert_settings() {
         $row['data'][] = implode(', ', $values);
       }
     }
-    $row['data'] += array(
+    $row['data'] = array_merge($row['data'], array(
       $roles[$alert->role],
       $alert->repeat_alert ? t('Yes') : t('No'),
       $alert->auto_dismiss ? t('Yes') : t('No'),
       $alert->dismiss_for_all ? t('Yes') : t('No'),
       theme('links__ctools_dropbutton', array('links' => $ops)),
-    );
+    ));
     $rows[] = $row;
   }
   $build = array();
@@ -245,7 +246,6 @@ function _dblog_alert_edit_form_submit(&$form, $form_state) {
   }
   drupal_goto('admin/config/development/dblog_alert');
 }
-
 
 /**
  * Form constructor for the alert delete form.
