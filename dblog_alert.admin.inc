@@ -286,5 +286,91 @@ function _dblog_alert_delete_form_submit(&$form, $form_state) {
   db_delete('dblog_alert_alerts')
       ->condition('aid', intval($aid))
       ->execute();
-  drupal_goto('admin/config/development/dblog_alert');
+}
+
+/**
+ * Build an alert message and display it to the user if it's a new message or
+ * the alert is set to repeat.
+ *
+ * @param object $alert
+ *   The alert object returned from the database
+ * @param object $dblog
+ *   The dblog object returned from the database
+ */
+function _dblog_alert_set_alert($alert, $dblog) {
+  module_load_include('admin.inc', 'dblog');
+  if (!$alert->repeat_alert) {
+    $displayed_alerts = &drupal_static(__FUNCTION__);
+    if (isset($displayed_alerts[$alert->aid]) && in_array($dblog->message, $displayed_alerts[$alert->aid])) {
+      return;
+    }
+    $displayed_alerts[$alert->aid][] = $dblog->message;
+  }
+  if ($alert->auto_dismiss) {
+    $alert_message = t('Database Logging Alert: !message', array(
+      '!message' => theme('dblog_message', array('event' => $dblog, 'link' => TRUE)),
+    ));
+    _dblog_alert_dismiss($alert, $dblog->wid);
+  }
+  else {
+    $dismiss_path = 'admin/config/development/dblog_alert/dismiss/'
+        . $alert->aid . "/" . $dblog->wid;
+    $dismiss_link = l(t('Dismiss'), $dismiss_path, array('query' => array('destination' => current_path())));
+    $alert_message = t('[!dismiss] Database Logging Alert: !message', array(
+      '!message' => theme('dblog_message', array('event' => $dblog, 'link' => TRUE)),
+      '!dismiss' => $dismiss_link,
+    ));
+  }
+  drupal_set_message($alert_message, 'warning');
+}
+
+/**
+ * Dismisss an alert.  If repeated alerts are not shown, dismiss all alerts
+ * which display with this one.
+ *
+ * @param mixed $alert
+ *   The alert object or id
+ * @param int $wid
+ *   The watchdog id
+ */
+function _dblog_alert_dismiss($alert, $wid) {
+  global $user;
+  if (!is_object($alert)) {
+    $alert = db_select('dblog_alert_alerts', 'daa')
+            ->fields('daa', array('aid', 'repeat_alert'))
+            ->condition('aid', intval($alert))
+            ->execute()->fetch();
+  }
+  if ($alert->repeat_alert) {
+    $wids = array($wid);
+  }
+  else {
+    $message = db_select('watchdog', 'w')
+        ->fields('w', array('message'))
+        ->condition('w.wid', $wid);
+    $wids = db_select('watchdog', 'w')
+        ->fields('w', array('wid'))
+        ->condition('w.message', $message, 'IN')
+        ->execute()
+        ->fetchCol();
+  }
+  $dismiss = db_insert('dblog_alert_dismissed')
+      ->fields(array('uid', 'wid', 'aid'));
+  foreach ($wids as $wid) {
+    $dismiss->values(array('uid' => $user->uid, 'wid' => $wid, 'aid' => $alert->aid));
+  }
+  $dismiss->execute();
+}
+
+/**
+ * Page callback: Dismiss an alert
+ *
+ * @param int $aid
+ *   The alert id
+ * @param int $wid
+ *   The watchdog id
+ */
+function _dblog_alert_dismiss_page($aid, $wid) {
+  _dblog_alert_dismiss($aid, $wid);
+  drupal_goto(drupal_get_destination());
 }
