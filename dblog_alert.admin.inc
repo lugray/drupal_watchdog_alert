@@ -235,16 +235,38 @@ function _dblog_alert_edit_form_submit(&$form, $form_state) {
       'dismiss_for_all' => empty($values['dismiss_for_all']) ? 0 : 1,
     );
     if (isset($values['aid'])) {
-      $query = db_update('dblog_alert_alerts')
-          ->condition('aid', intval($values['aid']));
+      $alert['aid'] = $values['aid'];
     }
-    else {
-      $query = db_insert('dblog_alert_alerts');
-    }
-    $query->fields($alert)
-        ->execute();
+    _dblog_alert_save_alert($alert);
   }
   drupal_goto('admin/config/development/dblog_alert');
+}
+
+/**
+ * Save an alert to the database.
+ *
+ * @param array $alert
+ *   An array describing the alert with keys:
+ *   - aid: Optional.  If provided, this will update the alert with this id.  If
+ *     omitted, a new alert will be created and assigned an id.
+ *   - filter: A serialized array representing the filter.
+ *   - role: The role to whom alerts should be shown.
+ *   - repeat_alert: Whether to display each instance of a repeated alert.
+ *   - auto_dismiss: Whether to dismiss automaticallly after showing.
+ *   - dismiss_for_all: Whether one user dissmissing the alert should dismiss it
+ *     for everyone.
+ */
+function _dblog_alert_save_alert($alert) {
+  if (isset($alert['aid'])) {
+    $query = db_update('dblog_alert_alerts')
+        ->condition('aid', intval($alert['aid']));
+    unset($alert['aid']);
+  }
+  else {
+    $query = db_insert('dblog_alert_alerts');
+  }
+  $query->fields($alert)
+      ->execute();
 }
 
 /**
@@ -280,9 +302,21 @@ function _dblog_alert_delete_form($form, $form_state, $aid) {
 
 /**
  * Form submission handler for _dblog_alert_delete_form()
+ *
+ * @see _dblog_alert_delete_alert
  */
 function _dblog_alert_delete_form_submit(&$form, $form_state) {
-  $aid = $form_state['values']['aid'];
+  _dblog_alert_delete_alert($form_state['values']['aid']);
+  drupal_goto('admin/config/development/dblog_alert');
+}
+
+/**
+ * Delete an alert from the database
+ *
+ * @param int $aid
+ *   The alert id
+ */
+function _dblog_alert_delete_alert($aid) {
   db_delete('dblog_alert_alerts')
       ->condition('aid', intval($aid))
       ->execute();
