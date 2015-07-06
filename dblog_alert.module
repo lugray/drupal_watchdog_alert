@@ -1,0 +1,97 @@
+<?php
+
+/**
+ * @file
+ * Implement hooks for the Database Logging Alert module
+ */
+
+/**
+ * Implements hook_cron().
+ *
+ * Controls the size of the dismissed alerts table, removing unneeded entries
+ * that have corresponding watchdog events that have been removed from the dblog
+ * log table, or alert types that have been deleted.
+ */
+function dblog_alert_cron() {
+  $watchdog_ids = db_select('watchdog', 'w')
+      ->fields('w', array('wid'));
+  $alert_ids = db_select('dblog_alert_alerts', 'daa')
+      ->fields('daa', array('aid'));
+  db_delete('dblog_alert_dismissed')
+      ->condition(db_or()
+          ->condition('wid', $watchdog_ids, 'NOT IN')
+          ->condition('aid', $alert_ids, 'NOT IN')
+      )
+      ->execute();
+}
+
+/**
+ * Implements hook_init().
+ *
+ * Creates the necessary calls to drupal_set_message().
+ */
+function dblog_alert_init() {
+  global $user;
+  $alerts = db_select('dblog_alert_alerts', 'daa')
+      ->fields('daa')
+      ->condition('daa.role', $user->roles, 'IN')
+      ->execute();
+
+  foreach ($alerts as $alert) {
+    $alert->filter = unserialize($alert->filter);
+    $dismissed = db_select('dblog_alert_dismissed', 'dad')
+        ->fields('dad', array('wid'));
+    if(!$alert->dismiss_for_all){
+      $dismissed->condition('dad.uid', $user->uid);
+    }
+    $dblogs = db_select('watchdog', 'w');
+    $dblogs->leftJoin($dismissed, 'dad', 'dad.wid = w.wid');
+    $dblogs
+        ->fields('w', array('wid', 'message', 'variables', 'type', 'severity'))
+        ->condition('dad.wid', NULL);
+    foreach ($alert->filter as $key => $values) {
+      $dblogs->condition('w.' . $key, $values, 'IN');
+    }
+    $dblogs = $dblogs->execute();
+
+    foreach ($dblogs as $dblog) {
+      dpm($dblog);
+    }
+  }
+}
+
+/**
+ * Implements hook_menu().
+ */
+function dblog_alert_menu() {
+  return array(
+    'admin/config/development/dblog_alert' => array(
+      'title' => 'Log Message Alerts',
+      'description' => 'Create alerts for certain kinds of logged messages.',
+      'page callback' => '_dblog_alert_settings',
+      'access arguments' => array('administer site configuration'),
+      'file' => 'dblog_alert.admin.inc',
+    ),
+    'admin/config/development/dblog_alert/new' => array(
+      'title' => 'Create New Alert',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_dblog_alert_edit_form'),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'dblog_alert.admin.inc',
+    ),
+    'admin/config/development/dblog_alert/%/edit' => array(
+      'title' => 'Edit Alert',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_dblog_alert_edit_form', 4),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'dblog_alert.admin.inc',
+    ),
+    'admin/config/development/dblog_alert/%/delete' => array(
+      'title' => 'Delete Alert',
+      'page callback' => 'drupal_get_form',
+      'page arguments' => array('_dblog_alert_delete_form', 4),
+      'access arguments' => array('administer site configuration'),
+      'file' => 'dblog_alert.admin.inc',
+    ),
+  );
+}
