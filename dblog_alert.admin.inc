@@ -188,18 +188,13 @@ function _dblog_alert_edit_form($form, $form_state, $aid = NULL) {
       '#description' => t('If selected, whenever an alert is dismissed it is dismissed for all users.'),
       '#default_value' => empty($alert['dismiss_for_all']) ? 0 : 1,
     ),
-    'ops' => array(
-      '#type' => 'container',
-      '#prefix' => '<div>',
-      '#suffix' => '</div>',
-      'submit' => array(
-        '#type' => 'submit',
-        '#value' => t('Submit'),
-      ),
-      'cancel' => array(
-        '#type' => 'submit',
-        '#value' => t('Cancel'),
-      ),
+    'submit' => array(
+      '#type' => 'submit',
+      '#value' => t('Submit'),
+    ),
+    'cancel' => array(
+      '#type' => 'submit',
+      '#value' => t('Cancel'),
     ),
   );
   return $form;
