@@ -40,10 +40,7 @@ function dblog_alert_page_build(&$page) {
     if ($user->uid == 1) {
       $roles += user_roles();
     }
-    $alerts = db_select('dblog_alert_alerts', 'daa')
-        ->fields('daa')
-        ->condition('daa.role', array_keys($roles), 'IN')
-        ->execute();
+    $alerts = dblog_alert_get_alerts(array_keys($roles));
 
     foreach ($alerts as $alert) {
       $alert->filter = unserialize($alert->filter);

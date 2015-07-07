@@ -401,3 +401,20 @@ function _dblog_alert_dismiss_page($aid, $wid) {
   _dblog_alert_dismiss($aid, $wid);
   drupal_goto(drupal_get_destination());
 }
+
+/**
+ * @param int[] $roles
+ *   Optional.  If given, filters the alerts to those that apply to the given
+ *   list of roles.
+ *
+ * @return array
+ *   An array of alert objects
+ */
+function dblog_alert_get_alerts($roles = Null) {
+  $query = db_select('dblog_alert_alerts', 'daa')
+      ->fields('daa');
+  if (!is_null($roles)) {
+    $query->condition('daa.role', $roles, 'IN');
+  }
+  return $query->execute()->fetchAll();
+}
