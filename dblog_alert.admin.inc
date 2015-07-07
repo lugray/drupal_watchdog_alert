@@ -130,10 +130,9 @@ function _dblog_alert_edit_form($form, $form_state, $aid = NULL) {
         ->condition('daa.aid', $aid)
         ->execute()
         ->fetchAssoc();
-    if (empty($alert)) {
-      drupal_goto('admin/config/development/dblog_alert');
+    if (!empty($alert)) {
+      $alert['filter'] = unserialize($alert['filter']);
     }
-    $alert['filter'] = unserialize($alert['filter']);
   }
   $form = array();
   if (isset($alert['aid'])) {
@@ -218,7 +217,12 @@ function _dblog_alert_edit_form_submit(&$form, $form_state) {
     if (isset($values['aid'])) {
       $alert['aid'] = $values['aid'];
     }
-    dblog_alert_save_alert($alert);
+    if (dblog_alert_save_alert($alert)) {
+      watchdog('dblog_alert', t('The alert was saved successfully.'), array(), WATCHDOG_INFO);
+    }
+    else {
+      watchdog('dblog_alert', t('The alert could not be saved.'), array(), WATCHDOG_WARNING);
+    }
   }
   drupal_goto('admin/config/development/dblog_alert');
 }
@@ -236,6 +240,9 @@ function _dblog_alert_edit_form_submit(&$form, $form_state) {
  *   - auto_dismiss: Whether to dismiss automaticallly after showing.
  *   - dismiss_for_all: Whether one user dissmissing the alert should dismiss it
  *     for everyone.
+ *
+ * @return boolean
+ *   TRUE for success
  */
 function dblog_alert_save_alert($alert) {
   if (isset($alert['aid'])) {
@@ -246,8 +253,14 @@ function dblog_alert_save_alert($alert) {
   else {
     $query = db_insert('dblog_alert_alerts');
   }
-  $query->fields($alert)
+  $result = $query->fields($alert)
       ->execute();
+  /*
+   * This does not type check since InsertQuery::execute() and
+   * UpdateQuery::execute() have different return values, but both evaluate to
+   * FALSE on failure.
+   */
+  return $result != FALSE;
 }
 
 /**
