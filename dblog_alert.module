@@ -55,7 +55,9 @@ function dblog_alert_page_build(&$page) {
           ->fields('w', array('wid', 'message', 'variables'))
           ->condition('dad.wid', NULL);
       foreach ($alert->filter as $key => $values) {
-        $dblogs->condition('w.' . $key, $values, 'IN');
+        if (!empty($values)) {
+          $dblogs->condition('w.' . $key, $values, 'IN');
+        }
       }
       $dblogs = $dblogs->execute();
 
