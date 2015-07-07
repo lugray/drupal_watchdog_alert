@@ -322,7 +322,7 @@ function dblog_alert_delete_alert($aid) {
 function _dblog_alert_set_alert($alert, $dblog) {
   module_load_include('admin.inc', 'dblog');
   if (!$alert->repeat_alert) {
-    $displayed_alerts = &drupal_static(__FUNCTION__);
+    $displayed_alerts = &drupal_static(__FUNCTION__, array());
     if (isset($displayed_alerts[$alert->aid]) && in_array($dblog->message, $displayed_alerts[$alert->aid])) {
       return;
     }
