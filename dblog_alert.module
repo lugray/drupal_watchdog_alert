@@ -100,7 +100,7 @@ function dblog_alert_menu() {
       'file' => 'dblog_alert.admin.inc',
     ),
     'admin/config/development/dblog_alert/dismiss/%/%' => array(
-      'title' => 'Delete Alert',
+      'title' => 'Dismiss Alert',
       'page callback' => '_dblog_alert_dismiss_page',
       'page arguments' => array(5, 6),
       'access arguments' => array('access site reports'),
