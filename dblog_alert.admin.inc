@@ -263,22 +263,18 @@ function dblog_alert_save_alert($alert) {
  * @ingroup forms
  */
 function _dblog_alert_delete_form($form, $form_state, $aid) {
-  return array(
-    'warning' => array(
-      '#type' => 'markup',
-      '#markup' => t('This action cannot be reversed.'),
-    ),
-    'confirm' => array(
-      '#type' => 'submit',
-      '#value' => t('Delete'),
-      '#prefix' => '<div>',
-      '#suffix' => '</div>',
-    ),
+  $form = array(
     'aid' => array(
       '#type' => 'hidden',
       '#value' => $aid,
     ),
   );
+  $question = t('Are you sure you want to delete this alert?');
+  $path = 'admin/config/development/dblog_alert';
+  $description = t('This action cannot be undone.');
+  $yes = t('Delete');
+  $no = t('Cancel');
+  return confirm_form($form, $question, $path, $description, $yes, $no);
 }
 
 /**
