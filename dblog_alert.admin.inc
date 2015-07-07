@@ -232,7 +232,7 @@ function _dblog_alert_edit_form_submit(&$form, $form_state) {
     if (isset($values['aid'])) {
       $alert['aid'] = $values['aid'];
     }
-    _dblog_alert_save_alert($alert);
+    dblog_alert_save_alert($alert);
   }
   drupal_goto('admin/config/development/dblog_alert');
 }
@@ -251,7 +251,7 @@ function _dblog_alert_edit_form_submit(&$form, $form_state) {
  *   - dismiss_for_all: Whether one user dissmissing the alert should dismiss it
  *     for everyone.
  */
-function _dblog_alert_save_alert($alert) {
+function dblog_alert_save_alert($alert) {
   if (isset($alert['aid'])) {
     $query = db_update('dblog_alert_alerts')
         ->condition('aid', intval($alert['aid']));
@@ -297,11 +297,9 @@ function _dblog_alert_delete_form($form, $form_state, $aid) {
 
 /**
  * Form submission handler for _dblog_alert_delete_form()
- *
- * @see _dblog_alert_delete_alert
  */
 function _dblog_alert_delete_form_submit(&$form, $form_state) {
-  _dblog_alert_delete_alert($form_state['values']['aid']);
+  dblog_alert_delete_alert($form_state['values']['aid']);
   drupal_goto('admin/config/development/dblog_alert');
 }
 
@@ -311,7 +309,7 @@ function _dblog_alert_delete_form_submit(&$form, $form_state) {
  * @param int $aid
  *   The alert id
  */
-function _dblog_alert_delete_alert($aid) {
+function dblog_alert_delete_alert($aid) {
   db_delete('dblog_alert_alerts')
       ->condition('aid', intval($aid))
       ->execute();
