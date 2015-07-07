@@ -346,7 +346,32 @@ function _dblog_alert_set_alert($alert, $dblog) {
       '!dismiss' => $dismiss_link,
     ));
   }
-  drupal_set_message($alert_message, 'warning');
+  $type = _dblog_alert_severity_to_type($dblog->severity);
+  drupal_set_message($alert_message, $type);
+}
+
+/**
+ * @param int $severity
+ *   A watchdog severity level
+ *
+ * @return string
+ *   A corresponding $type for drupal_set_message()
+ */
+function _dblog_alert_severity_to_type($severity) {
+  switch ($severity) {
+    case WATCHDOG_EMERGENCY:
+    case WATCHDOG_ALERT:
+    case WATCHDOG_CRITICAL:
+    case WATCHDOG_ERROR:
+      return 'error';
+    case WATCHDOG_WARNING:
+      return 'warning';
+    case WATCHDOG_NOTICE:
+    case WATCHDOG_INFO:
+    case WATCHDOG_DEBUG:
+    default:
+      return 'status';
+  }
 }
 
 /**

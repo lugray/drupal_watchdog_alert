@@ -52,7 +52,7 @@ function dblog_alert_page_build(&$page) {
       $dblogs = db_select('watchdog', 'w');
       $dblogs->leftJoin($dismissed, 'dad', 'dad.wid = w.wid');
       $dblogs
-          ->fields('w', array('wid', 'message', 'variables'))
+          ->fields('w', array('wid', 'message', 'variables', 'severity'))
           ->condition('dad.wid', NULL);
       foreach ($alert->filter as $key => $values) {
         if (!empty($values)) {
