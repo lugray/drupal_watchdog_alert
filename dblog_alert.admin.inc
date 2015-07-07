@@ -118,7 +118,6 @@ function _dblog_alert_new_button_form_submit($form, $form_state) {
  *   The alert id of the alert to edit, can be omitted (or set to NULL) to
  *   create a new alert.
  *
- * @see _dblog_alert_edit_form_validate()
  * @see _dblog_alert_edit_form_submit()
  *
  * @ingroup forms
@@ -165,6 +164,7 @@ function _dblog_alert_edit_form($form, $form_state, $aid = NULL) {
     'role' => array(
       '#type' => 'select',
       '#title' => t('Role'),
+      '#required' => TRUE,
       '#description' => t('You must select a role allowed to access site reports.'),
       '#options' => user_roles(TRUE, 'access site reports'),
       '#default_value' => isset($alert['role']) ? $alert['role'] : '',
@@ -195,29 +195,15 @@ function _dblog_alert_edit_form($form, $form_state, $aid = NULL) {
     'cancel' => array(
       '#type' => 'submit',
       '#value' => t('Cancel'),
+      '#submit' => array('_dblog_alert_edit_form_submit'),
+      '#limit_validation_errors' => array(),
     ),
   );
   return $form;
 }
 
 /**
- * Form validation handler for _dblog_alert_edit_form()
- *
- * @see _dblog_alert_edit_form_submit()
- */
-function _dblog_alert_edit_form_validate($form, &$form_state) {
-  if ($form_state['triggering_element']['#parents'][0] == 'cancel') {
-    return;
-  }
-  if ($form_state['values']['role'] == '') {
-    form_set_error('role', t('You must select a role.'));
-  }
-}
-
-/**
  * Form submission handler for _dblog_alert_edit_form()
- *
- * @see _dblog_alert_edit_form_validate()
  */
 function _dblog_alert_edit_form_submit(&$form, $form_state) {
   if ($form_state['triggering_element']['#parents'][0] == 'submit') {
