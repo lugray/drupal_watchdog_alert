@@ -10,80 +10,170 @@
  */
 function watchdog_alert_schema() {
   return array(
-    'watchdog_alert_dismissed' => array(
-      'description' => 'Stores information about dismissed alerts.',
+    'watchdog_alert' => array(
+      'description' => 'Table that contains undismissed alerts.',
       'fields' => array(
-        'did' => array(
-          'description' => 'Primary Key: Unique dismissal id.',
+        'aid' => array(
           'type' => 'serial',
           'not null' => TRUE,
+          'description' => 'Primary Key: Unique alert ID.',
+        ),
+        'pid' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'description' => 'The {watchdog_alert_profile}.pid associated with this alert.',
         ),
         'uid' => array(
-          'description' => 'The {users}.uid of the user who dismissed the alert.',
           'type' => 'int',
-          'not null' => TRUE,
+          'description' => 'The {users}.uid of the user to whom the alert should be displayed.',
         ),
-        'wid' => array(
-          'description' => 'The {watchdog}.wid of the dissmissed alert.',
-          'type' => 'int',
+        'tid' => array(
+          'type' => 'varchar',
+          'length' => 64,
           'not null' => TRUE,
+          'default' => '',
+          'description' => 'The {watchdog_alert_type}.tid of the message.',
         ),
-        'aid' => array(
-          'description' => 'The {watchdog_alert_alerts}.aid of the dissmissed alert.',
-          'type' => 'int',
+        'message' => array(
+          'type' => 'text',
           'not null' => TRUE,
+          'size' => 'big',
+          'description' => 'Text of log message to be passed into the t() function.',
         ),
-      ),
-      'primary key' => array(
-        'did',
-      ),
-      'indexes' => array(),
-    ),
-    'watchdog_alert_alerts' => array(
-      'description' => 'Stores the definitions for alert types',
-      'fields' => array(
-        'aid' => array(
-          'description' => 'Primary Key: Unique alert type id.',
-          'type' => 'serial',
-          'not null' => TRUE,
-        ),
-        'filter' => array(
-          'description' => 'An array of filter options for the alert type.',
+        'variables' => array(
           'type' => 'blob',
           'not null' => TRUE,
-          'serialize' => TRUE,
+          'size' => 'big',
+          'description' => 'Serialized array of variables that match the message string and that is passed into the t() function.',
         ),
-        'role' => array(
-          'description' => 'The {role}.rid to whom this alert type should be displayed.',
+        'severity' => array(
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'default' => WATCHDOG_NOTICE,
+          'size' => 'tiny',
+          'description' => 'The severity level of the event; ranges from 0 (Emergency) to 7 (Debug)',
+        ),
+        'link' => array(
+          'type' => 'varchar',
+          'length' => 255,
+          'not null' => FALSE,
+          'default' => '',
+          'description' => 'A link associated with the message.',
+        ),
+        'trigger_uid' => array(
           'type' => 'int',
           'not null' => TRUE,
+          'default' => 0,
+          'description' => 'The {users}.uid of the user who triggered the event.',
+        ),
+        'request_uri' => array(
+          'type' => 'text',
+          'not null' => TRUE,
+          'description' => 'URL of the origin of the event.',
+        ),
+        'referer' => array(
+          'type' => 'text',
+          'not null' => FALSE,
+          'description' => 'URL of referring page.',
+        ),
+        'ip' => array(
+          'type' => 'varchar',
+          'length' => 128,
+          'not null' => TRUE,
+          'default' => '',
+          'description' => 'IP of the user who triggered the event.',
+        ),
+        'timestamp' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 0,
+          'description' => 'Unix timestamp of when event occurred.',
+        ),
+        'count' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'default' => 1,
+          'description' => 'Number of watchdog messages this alert represents.',
+        ),
+      ),
+      'primary key' => array('aid'),
+      'indexes' => array(
+        'pid' => array('pid'),
+        'tid' => array('tid'),
+        'uid' => array('uid'),
+      ),
+    ),
+    'watchdog_alert_profile' => array(
+      'description' => 'Stores the definitions for alert profiles',
+      'fields' => array(
+        'pid' => array(
+          'type' => 'serial',
+          'not null' => TRUE,
+          'description' => 'Primary Key: Unique alert profile id.',
+        ),
+        'tid' => array(
+          'type' => 'int',
+          'description' => 'The {watchdog_alert_type}.tid associated with the profile.',
+        ),
+        'severities' => array(
+          'type' => 'int',
+          'size' => 'tiny',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+          'description' => 'A binary value with bits from 0 (Emergency) to 7 (Debug) representing inclusion of that severity.',
+        ),
+        'rid' => array(
+          'type' => 'int',
+          'not null' => TRUE,
+          'description' => 'The {role}.rid to whom this alert type should be displayed.',
         ),
         'repeat_alert' => array(
-          'description' => 'Boolean: Show repeated alerts for each instance of an event?',
           'type' => 'int',
           'size' => 'tiny',
           'not null' => TRUE,
           'default' => 0,
+          'description' => 'Boolean: Show repeated alerts for each instance of an event?',
         ),
         'auto_dismiss' => array(
-          'description' => 'Boolean: Automatically dismiss the alert after showing it to the user?',
           'type' => 'int',
           'size' => 'tiny',
           'not null' => TRUE,
           'default' => 0,
+          'description' => 'Boolean: Automatically dismiss the alert after showing it to the user?',
         ),
         'dismiss_for_all' => array(
-          'description' => 'Boolean: Dismissing an alert dismisses it for all users?',
           'type' => 'int',
           'size' => 'tiny',
           'not null' => TRUE,
           'default' => 0,
+          'description' => 'Boolean: Dismissing an alert dismisses it for all users?',
         ),
       ),
-      'primary key' => array(
-        'aid',
+      'primary key' => array('pid'),
+      'indexes' => array(
+        'tid' => array('tid')
       ),
-      'indexes' => array(),
+    ),
+    'watchdog_alert_type' => array(
+      'description' => 'Stores the list of message types observed.',
+      'fields' => array(
+        'tid' => array(
+          'type' => 'serial',
+          'not null' => TRUE,
+          'description' => 'Primary Key: Unique type id.',
+        ),
+        'type' => array(
+          'type' => 'varchar',
+          'length' => 64,
+          'not null' => TRUE,
+          'description' => 'Type of log message, for example "user" or "page not found."',
+        ),
+      ),
+      'primary key' => array('tid'),
+      'unique keys' => array(
+        'type' => array('type'),
+      ),
     ),
   );
 }
