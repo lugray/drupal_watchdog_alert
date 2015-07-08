@@ -12,12 +12,12 @@
  * that have corresponding watchdog events that have been removed from the dblog
  * log table, or alert types that have been deleted.
  */
-function dblog_alert_cron() {
+function watchdog_alert_cron() {
   $watchdog_ids = db_select('watchdog', 'w')
       ->fields('w', array('wid'));
-  $alert_ids = db_select('dblog_alert_alerts', 'daa')
+  $alert_ids = db_select('watchdog_alert_alerts', 'daa')
       ->fields('daa', array('aid'));
-  db_delete('dblog_alert_dismissed')
+  db_delete('watchdog_alert_dismissed')
       ->condition(db_or()
           ->condition('wid', $watchdog_ids, 'NOT IN')
           ->condition('aid', $alert_ids, 'NOT IN')
@@ -30,21 +30,21 @@ function dblog_alert_cron() {
  *
  * Creates the necessary calls to drupal_set_message().  This hook is used to
  * ensure this takes place after any alert dismissal, and after any redirects
- * which reset the drupal_static() used in _dblog_alert_set_alert().
+ * which reset the drupal_static() used in _watchdog_alert_set_alert().
  */
-function dblog_alert_page_build(&$page) {
+function watchdog_alert_page_build(&$page) {
   if (user_access('access site reports')) {
-    module_load_include('admin.inc', 'dblog_alert');
+    module_load_include('admin.inc', 'watchdog_alert');
     global $user;
     $roles = $user->roles;
     if ($user->uid == 1) {
       $roles += user_roles();
     }
-    $alerts = dblog_alert_get_alerts(array_keys($roles));
+    $alerts = watchdog_alert_get_alerts(array_keys($roles));
 
     foreach ($alerts as $alert) {
       $alert->filter = unserialize($alert->filter);
-      $dismissed = db_select('dblog_alert_dismissed', 'dad')
+      $dismissed = db_select('watchdog_alert_dismissed', 'dad')
           ->fields('dad', array('wid'));
       if (!$alert->dismiss_for_all) {
         $dismissed->condition('dad.uid', $user->uid);
@@ -59,10 +59,11 @@ function dblog_alert_page_build(&$page) {
           $dblogs->condition('w.' . $key, $values, 'IN');
         }
       }
+      drupal_set_message($dblogs);
       $dblogs = $dblogs->execute();
 
       foreach ($dblogs as $dblog) {
-        _dblog_alert_set_alert($alert, $dblog);
+        _watchdog_alert_set_alert($alert, $dblog);
       }
     }
   }
@@ -71,42 +72,42 @@ function dblog_alert_page_build(&$page) {
 /**
  * Implements hook_menu().
  */
-function dblog_alert_menu() {
+function watchdog_alert_menu() {
   return array(
-    'admin/config/development/dblog_alert' => array(
+    'admin/config/development/watchdog_alert' => array(
       'title' => 'Log Message Alerts',
       'description' => 'Create alerts for certain kinds of logged messages.',
-      'page callback' => '_dblog_alert_settings',
+      'page callback' => '_watchdog_alert_settings',
       'access arguments' => array('administer site configuration'),
-      'file' => 'dblog_alert.admin.inc',
+      'file' => 'watchdog_alert.admin.inc',
     ),
-    'admin/config/development/dblog_alert/new' => array(
+    'admin/config/development/watchdog_alert/new' => array(
       'title' => 'Create New Alert',
       'page callback' => 'drupal_get_form',
-      'page arguments' => array('_dblog_alert_edit_form'),
+      'page arguments' => array('_watchdog_alert_edit_form'),
       'access arguments' => array('administer site configuration'),
-      'file' => 'dblog_alert.admin.inc',
+      'file' => 'watchdog_alert.admin.inc',
     ),
-    'admin/config/development/dblog_alert/%/edit' => array(
+    'admin/config/development/watchdog_alert/%/edit' => array(
       'title' => 'Edit Alert',
       'page callback' => 'drupal_get_form',
-      'page arguments' => array('_dblog_alert_edit_form', 4),
+      'page arguments' => array('_watchdog_alert_edit_form', 4),
       'access arguments' => array('administer site configuration'),
-      'file' => 'dblog_alert.admin.inc',
+      'file' => 'watchdog_alert.admin.inc',
     ),
-    'admin/config/development/dblog_alert/%/delete' => array(
+    'admin/config/development/watchdog_alert/%/delete' => array(
       'title' => 'Delete Alert',
       'page callback' => 'drupal_get_form',
-      'page arguments' => array('_dblog_alert_delete_form', 4),
+      'page arguments' => array('_watchdog_alert_delete_form', 4),
       'access arguments' => array('administer site configuration'),
-      'file' => 'dblog_alert.admin.inc',
+      'file' => 'watchdog_alert.admin.inc',
     ),
-    'admin/config/development/dblog_alert/dismiss/%/%' => array(
+    'admin/config/development/watchdog_alert/dismiss/%/%' => array(
       'title' => 'Dismiss Alert',
-      'page callback' => '_dblog_alert_dismiss_page',
+      'page callback' => '_watchdog_alert_dismiss_page',
       'page arguments' => array(5, 6),
       'access arguments' => array('access site reports'),
-      'file' => 'dblog_alert.admin.inc',
+      'file' => 'watchdog_alert.admin.inc',
     ),
   );
 }

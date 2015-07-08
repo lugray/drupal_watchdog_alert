@@ -8,9 +8,9 @@
 /**
  * Implements hook_schema().
  */
-function dblog_alert_schema() {
+function watchdog_alert_schema() {
   return array(
-    'dblog_alert_dismissed' => array(
+    'watchdog_alert_dismissed' => array(
       'description' => 'Stores information about dismissed alerts.',
       'fields' => array(
         'did' => array(
@@ -29,7 +29,7 @@ function dblog_alert_schema() {
           'not null' => TRUE,
         ),
         'aid' => array(
-          'description' => 'The {dblog_alert_alerts}.aid of the dissmissed alert.',
+          'description' => 'The {watchdog_alert_alerts}.aid of the dissmissed alert.',
           'type' => 'int',
           'not null' => TRUE,
         ),
@@ -39,7 +39,7 @@ function dblog_alert_schema() {
       ),
       'indexes' => array(),
     ),
-    'dblog_alert_alerts' => array(
+    'watchdog_alert_alerts' => array(
       'description' => 'Stores the definitions for alert types',
       'fields' => array(
         'aid' => array(

@@ -1,6 +1,0 @@
-name = Database Logging Alert
-description = "Extends dblog to allow alerting particular roles to certain kinds
-of watchdog messages."
-core = 7.x
-
-dependencies[] = dblog

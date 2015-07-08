@@ -12,9 +12,9 @@
  * Display a table of existing alerts, giving the option to edit/delete them,
  * as well as a button to create a new alert.
  *
- * @see dblog_alert_menu()
+ * @see watchdog_alert_menu()
  */
-function _dblog_alert_settings() {
+function _watchdog_alert_settings() {
   ctools_include('dropbutton.theme');
   module_load_include('inc', 'dblog', 'dblog.admin');
   $header = array();
@@ -29,7 +29,7 @@ function _dblog_alert_settings() {
     t('Operations'),
   ));
 
-  $results = db_select('dblog_alert_alerts', 'daa')
+  $results = db_select('watchdog_alert_alerts', 'daa')
       ->extend('PagerDefault')
       ->extend('TableSort')
       ->fields('daa')
@@ -44,11 +44,11 @@ function _dblog_alert_settings() {
     $ops = array(
       array(
         'title' => t('Edit'),
-        'href' => 'admin/config/development/dblog_alert/' . $alert->aid . '/edit',
+        'href' => 'admin/config/development/watchdog_alert/' . $alert->aid . '/edit',
       ),
       array(
         'title' => t('Delete'),
-        'href' => 'admin/config/development/dblog_alert/' . $alert->aid . '/delete',
+        'href' => 'admin/config/development/watchdog_alert/' . $alert->aid . '/delete',
       ),
     );
     $row = array('data' => array());
@@ -74,26 +74,26 @@ function _dblog_alert_settings() {
     $rows[] = $row;
   }
   $build = array();
-  $build['dblog_alert_table'] = array(
+  $build['watchdog_alert_table'] = array(
     '#theme' => 'table',
     '#header' => $header,
     '#rows' => $rows,
     '#attributes' => array('id' => 'admin-dblog-alert'),
     '#empty' => t('There are no alerts set.'),
   );
-  $build['dblog_alert_pager'] = array('#theme' => 'pager');
-  $build['dblog_alert_new'] = drupal_get_form('_dblog_alert_new_button_form');
+  $build['watchdog_alert_pager'] = array('#theme' => 'pager');
+  $build['watchdog_alert_new'] = drupal_get_form('_watchdog_alert_new_button_form');
   return $build;
 }
 
 /**
  * Form constructor for the button to launch creating a new alert.
  *
- * @see _dblog_alert_new_button_form_submit()
+ * @see _watchdog_alert_new_button_form_submit()
  *
  * @ingroup forms
  */
-function _dblog_alert_new_button_form($form, $form_state) {
+function _watchdog_alert_new_button_form($form, $form_state) {
   return array(
     '#attributes' => array('class' => array('clearfix')),
     array(
@@ -105,10 +105,10 @@ function _dblog_alert_new_button_form($form, $form_state) {
 }
 
 /**
- * Form submission handler for _dblog_alert_new_button_form()
+ * Form submission handler for _watchdog_alert_new_button_form()
  */
-function _dblog_alert_new_button_form_submit($form, $form_state) {
-  drupal_goto('admin/config/development/dblog_alert/new');
+function _watchdog_alert_new_button_form_submit($form, $form_state) {
+  drupal_goto('admin/config/development/watchdog_alert/new');
 }
 
 /**
@@ -118,14 +118,14 @@ function _dblog_alert_new_button_form_submit($form, $form_state) {
  *   The alert id of the alert to edit, can be omitted (or set to NULL) to
  *   create a new alert.
  *
- * @see _dblog_alert_edit_form_submit()
+ * @see _watchdog_alert_edit_form_submit()
  *
  * @ingroup forms
  */
-function _dblog_alert_edit_form($form, $form_state, $aid = NULL) {
+function _watchdog_alert_edit_form($form, $form_state, $aid = NULL) {
   module_load_include('inc', 'dblog', 'dblog.admin');
   if (!is_null($aid)) {
-    $alert = db_select('dblog_alert_alerts', 'daa')
+    $alert = db_select('watchdog_alert_alerts', 'daa')
         ->fields('daa')
         ->condition('daa.aid', $aid)
         ->execute()
@@ -194,7 +194,7 @@ function _dblog_alert_edit_form($form, $form_state, $aid = NULL) {
     'cancel' => array(
       '#type' => 'submit',
       '#value' => t('Cancel'),
-      '#submit' => array('_dblog_alert_edit_form_submit'),
+      '#submit' => array('_watchdog_alert_edit_form_submit'),
       '#limit_validation_errors' => array(),
     ),
   );
@@ -202,9 +202,9 @@ function _dblog_alert_edit_form($form, $form_state, $aid = NULL) {
 }
 
 /**
- * Form submission handler for _dblog_alert_edit_form()
+ * Form submission handler for _watchdog_alert_edit_form()
  */
-function _dblog_alert_edit_form_submit(&$form, $form_state) {
+function _watchdog_alert_edit_form_submit(&$form, $form_state) {
   if ($form_state['triggering_element']['#parents'][0] == 'submit') {
     $values = $form_state['values'];
     $alert = array(
@@ -217,14 +217,14 @@ function _dblog_alert_edit_form_submit(&$form, $form_state) {
     if (isset($values['aid'])) {
       $alert['aid'] = $values['aid'];
     }
-    if (dblog_alert_save_alert($alert)) {
-      watchdog('dblog_alert', t('The alert was saved successfully.'), array(), WATCHDOG_INFO);
+    if (watchdog_alert_save_alert($alert)) {
+      watchdog('watchdog_alert', t('The alert was saved successfully.'), array(), WATCHDOG_INFO);
     }
     else {
-      watchdog('dblog_alert', t('The alert could not be saved.'), array(), WATCHDOG_WARNING);
+      watchdog('watchdog_alert', t('The alert could not be saved.'), array(), WATCHDOG_WARNING);
     }
   }
-  drupal_goto('admin/config/development/dblog_alert');
+  drupal_goto('admin/config/development/watchdog_alert');
 }
 
 /**
@@ -244,14 +244,14 @@ function _dblog_alert_edit_form_submit(&$form, $form_state) {
  * @return boolean
  *   TRUE for success
  */
-function dblog_alert_save_alert($alert) {
+function watchdog_alert_save_alert($alert) {
   if (isset($alert['aid'])) {
-    $query = db_update('dblog_alert_alerts')
+    $query = db_update('watchdog_alert_alerts')
         ->condition('aid', intval($alert['aid']));
     unset($alert['aid']);
   }
   else {
-    $query = db_insert('dblog_alert_alerts');
+    $query = db_insert('watchdog_alert_alerts');
   }
   $result = $query->fields($alert)
       ->execute();
@@ -271,11 +271,11 @@ function dblog_alert_save_alert($alert) {
  * @param int $aid
  *   The alert id of the alert to delete.
  *
- * @see _dblog_alert_delete_form_submit()
+ * @see _watchdog_alert_delete_form_submit()
  *
  * @ingroup forms
  */
-function _dblog_alert_delete_form($form, $form_state, $aid) {
+function _watchdog_alert_delete_form($form, $form_state, $aid) {
   $form = array(
     'aid' => array(
       '#type' => 'hidden',
@@ -283,7 +283,7 @@ function _dblog_alert_delete_form($form, $form_state, $aid) {
     ),
   );
   $question = t('Are you sure you want to delete this alert?');
-  $path = 'admin/config/development/dblog_alert';
+  $path = 'admin/config/development/watchdog_alert';
   $description = t('This action cannot be undone.');
   $yes = t('Delete');
   $no = t('Cancel');
@@ -291,11 +291,11 @@ function _dblog_alert_delete_form($form, $form_state, $aid) {
 }
 
 /**
- * Form submission handler for _dblog_alert_delete_form()
+ * Form submission handler for _watchdog_alert_delete_form()
  */
-function _dblog_alert_delete_form_submit(&$form, $form_state) {
-  dblog_alert_delete_alert($form_state['values']['aid']);
-  drupal_goto('admin/config/development/dblog_alert');
+function _watchdog_alert_delete_form_submit(&$form, $form_state) {
+  watchdog_alert_delete_alert($form_state['values']['aid']);
+  drupal_goto('admin/config/development/watchdog_alert');
 }
 
 /**
@@ -304,8 +304,8 @@ function _dblog_alert_delete_form_submit(&$form, $form_state) {
  * @param int $aid
  *   The alert id
  */
-function dblog_alert_delete_alert($aid) {
-  db_delete('dblog_alert_alerts')
+function watchdog_alert_delete_alert($aid) {
+  db_delete('watchdog_alert_alerts')
       ->condition('aid', intval($aid))
       ->execute();
 }
@@ -319,7 +319,7 @@ function dblog_alert_delete_alert($aid) {
  * @param object $dblog
  *   The dblog object returned from the database
  */
-function _dblog_alert_set_alert($alert, $dblog) {
+function _watchdog_alert_set_alert($alert, $dblog) {
   module_load_include('admin.inc', 'dblog');
   if (!$alert->repeat_alert) {
     $displayed_alerts = &drupal_static(__FUNCTION__, array());
@@ -335,10 +335,10 @@ function _dblog_alert_set_alert($alert, $dblog) {
     $alert_message = t('Database Logging Alert: !message', array(
       '!message' => theme('dblog_message', array('event' => $dblog, 'link' => TRUE)),
     ));
-    _dblog_alert_dismiss($alert, $dblog->wid);
+    _watchdog_alert_dismiss($alert, $dblog->wid);
   }
   else {
-    $dismiss_path = 'admin/config/development/dblog_alert/dismiss/'
+    $dismiss_path = 'admin/config/development/watchdog_alert/dismiss/'
         . $alert->aid . "/" . $dblog->wid;
     $dismiss_link = l(t('Dismiss'), $dismiss_path, array('query' => array('destination' => current_path())));
     $alert_message = t('[!dismiss] Database Logging Alert: !message', array(
@@ -346,7 +346,7 @@ function _dblog_alert_set_alert($alert, $dblog) {
       '!dismiss' => $dismiss_link,
     ));
   }
-  $type = _dblog_alert_severity_to_type($dblog->severity);
+  $type = _watchdog_alert_severity_to_type($dblog->severity);
   drupal_set_message($alert_message, $type);
 }
 
@@ -357,7 +357,7 @@ function _dblog_alert_set_alert($alert, $dblog) {
  * @return string
  *   A corresponding $type for drupal_set_message()
  */
-function _dblog_alert_severity_to_type($severity) {
+function _watchdog_alert_severity_to_type($severity) {
   switch ($severity) {
     case WATCHDOG_EMERGENCY:
     case WATCHDOG_ALERT:
@@ -383,31 +383,35 @@ function _dblog_alert_severity_to_type($severity) {
  * @param int $wid
  *   The watchdog id
  */
-function _dblog_alert_dismiss($alert, $wid) {
+function _watchdog_alert_dismiss($alert, $wid) {
   global $user;
   if (!is_object($alert)) {
-    $alert = db_select('dblog_alert_alerts', 'daa')
+    $alert = db_select('watchdog_alert_alerts', 'daa')
             ->fields('daa', array('aid', 'repeat_alert'))
             ->condition('aid', intval($alert))
             ->execute()->fetch();
   }
+  $dismiss = db_insert('watchdog_alert_dismissed')
+      /* Keep 'wid' first since SelectQuery::__toString() will always add fields
+       * before expressions, (regardless of the order in which addField and
+       * addExpression are called) and it's important that the order here match
+       * the order in ->from($insert).
+       */
+      ->fields(array('wid', 'uid', 'aid'));
   if ($alert->repeat_alert) {
-    $wids = array($wid);
+    $insert = array('wid' => $wid, 'uid' => $user->uid, 'aid' => $alert->aid);
+    $dismiss->values($insert);
   }
   else {
     $message = db_select('watchdog', 'w')
         ->fields('w', array('message'))
         ->condition('w.wid', $wid);
-    $wids = db_select('watchdog', 'w')
-        ->fields('w', array('wid'))
-        ->condition('w.message', $message, 'IN')
-        ->execute()
-        ->fetchCol();
-  }
-  $dismiss = db_insert('dblog_alert_dismissed')
-      ->fields(array('uid', 'wid', 'aid'));
-  foreach ($wids as $wid) {
-    $dismiss->values(array('uid' => $user->uid, 'wid' => $wid, 'aid' => $alert->aid));
+    $insert = db_select('watchdog', 'w');
+    $insert->addField('w', 'wid');
+    $insert->addExpression($user->uid, 'uid');
+    $insert->addExpression($alert->aid, 'aid');
+    $insert->condition('w.message', $message, 'IN');
+    $dismiss->from($insert);
   }
   $dismiss->execute();
 }
@@ -420,8 +424,8 @@ function _dblog_alert_dismiss($alert, $wid) {
  * @param int $wid
  *   The watchdog id
  */
-function _dblog_alert_dismiss_page($aid, $wid) {
-  _dblog_alert_dismiss($aid, $wid);
+function _watchdog_alert_dismiss_page($aid, $wid) {
+  _watchdog_alert_dismiss($aid, $wid);
   drupal_goto(drupal_get_destination());
 }
 
@@ -433,8 +437,8 @@ function _dblog_alert_dismiss_page($aid, $wid) {
  * @return array
  *   An array of alert objects
  */
-function dblog_alert_get_alerts($roles = Null) {
-  $query = db_select('dblog_alert_alerts', 'daa')
+function watchdog_alert_get_alerts($roles = Null) {
+  $query = db_select('watchdog_alert_alerts', 'daa')
       ->fields('daa');
   if (!is_null($roles)) {
     $query->condition('daa.role', $roles, 'IN');
