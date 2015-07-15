@@ -177,3 +177,17 @@ function watchdog_alert_schema() {
     ),
   );
 }
+
+/**
+ * Implements hook_enable().
+ */
+function watchdog_alert_enable() {
+  $types = array();
+  foreach (module_implements('watchdog_alert_types') as $module) {
+    $new_types = array_values(module_invoke($module, 'watchdog_alert_types'));
+    $types = array_merge($types, $new_types);
+  }
+  foreach (array_unique($types) as $type) {
+    watchdog_alerts_add_type($type);
+  }
+}

@@ -8,65 +8,73 @@
 /**
  * Implements hook_cron().
  *
- * Controls the size of the dismissed alerts table, removing unneeded entries
- * that have corresponding watchdog events that have been removed from the dblog
- * log table, or alert types that have been deleted.
+ * Controls the size of the alerts table, removing entries which are no longer
+ * needed.
  */
 function watchdog_alert_cron() {
-  $watchdog_ids = db_select('watchdog', 'w')
-      ->fields('w', array('wid'));
-  $alert_ids = db_select('watchdog_alert_alerts', 'daa')
-      ->fields('daa', array('aid'));
-  db_delete('watchdog_alert_dismissed')
-      ->condition(db_or()
-          ->condition('wid', $watchdog_ids, 'NOT IN')
-          ->condition('aid', $alert_ids, 'NOT IN')
-      )
-      ->execute();
+  module_load_include('admin.inc', 'watchdog_alert');
+  _watchdog_alert_remove_expired();
+  _watchdog_alert_remove_no_access();
+  _watchdog_alert_remove_over_limit();
 }
 
 /**
  * Implements hook_page_build().
  *
- * Creates the necessary calls to drupal_set_message().  This hook is used to
- * ensure this takes place after any alert dismissal, and after any redirects
- * which reset the drupal_static() used in _watchdog_alert_set_alert().
+ * Creates the necessary calls to drupal_set_message().  This hook is used (and
+ * not hook_init()) to ensure this takes place after any alert dismissal, and
+ * after any redirects which avoids duplicate messages.
  */
 function watchdog_alert_page_build(&$page) {
   if (user_access('access site reports')) {
     module_load_include('admin.inc', 'watchdog_alert');
     global $user;
-    $roles = $user->roles;
-    if ($user->uid == 1) {
-      $roles += user_roles();
-    }
-    $alerts = watchdog_alert_get_alerts(array_keys($roles));
+    $alerts = watchdog_alert_get_alerts($user->uid);
 
     foreach ($alerts as $alert) {
-      $alert->filter = unserialize($alert->filter);
-      $dismissed = db_select('watchdog_alert_dismissed', 'dad')
-          ->fields('dad', array('wid'));
-      if (!$alert->dismiss_for_all) {
-        $dismissed->condition('dad.uid', $user->uid);
+      if ($alert->auto_dismiss) {
+        $alert_message = t('Database Logging Alert: !message', array(
+          '!message' => theme('watchdog_alert_message', array('alert' => $alert)),
+        ));
+        _watchdog_alert_dismiss($alert, $dblog->wid);
       }
-      $dblogs = db_select('watchdog', 'w');
-      $dblogs->leftJoin($dismissed, 'dad', 'dad.wid = w.wid');
-      $dblogs
-          ->fields('w', array('wid', 'message', 'variables', 'severity'))
-          ->condition('dad.wid', NULL);
-      foreach ($alert->filter as $key => $values) {
-        if (!empty($values)) {
-          $dblogs->condition('w.' . $key, $values, 'IN');
-        }
+      else {
+        $dismiss_path = 'admin/config/development/watchdog_alert/'
+            . $alert->aid . '/dismiss';
+        $dismiss_options = array(
+          'query' => array('destination' => current_path()),
+        );
+        $dismiss_link = l(t('Dismiss'), $dismiss_path, $dismiss_options);
+        $alert_message = t('[!dismiss] Database Logging Alert: !message', array(
+          '!message' => theme('watchdog_alert_message', array('alert' => $alert)),
+          '!dismiss' => $dismiss_link,
+        ));
       }
-      drupal_set_message($dblogs);
-      $dblogs = $dblogs->execute();
-
-      foreach ($dblogs as $dblog) {
-        _watchdog_alert_set_alert($alert, $dblog);
-      }
+      $type = _watchdog_alert_severity_to_type($dblog->severity);
+      drupal_set_message($alert_message, $type);
     }
   }
+}
+
+/**
+ * Implements hook_theme().
+ */
+function watchdog_alert_theme() {
+  return array(
+    'watchdog_alert_message' => array(
+      'variables' => array('alert' => Null),
+      'file' => 'watchdog_alert.admin.inc',
+    )
+  );
+}
+
+/**
+ * Implements hook_watchdog().
+ *
+ * Add watchdog events matching an alert profile to the database.
+ */
+function watchdog_alert_watchdog($log_entry) {
+  //!variable_get('watchdog_alert_exclude_user_1', FALSE)
 }
 
 /**
@@ -75,39 +83,67 @@ function watchdog_alert_page_build(&$page) {
 function watchdog_alert_menu() {
   return array(
     'admin/config/development/watchdog_alert' => array(
-      'title' => 'Log Message Alerts',
+      'title' => 'Log Message Alert Profiles',
       'description' => 'Create alerts for certain kinds of logged messages.',
-      'page callback' => '_watchdog_alert_settings',
+      'page callback' => '_watchdog_alert_profiles',
       'access arguments' => array('administer site configuration'),
       'file' => 'watchdog_alert.admin.inc',
     ),
     'admin/config/development/watchdog_alert/new' => array(
-      'title' => 'Create New Alert',
+      'title' => 'Create New Alert Profile',
       'page callback' => 'drupal_get_form',
       'page arguments' => array('_watchdog_alert_edit_form'),
       'access arguments' => array('administer site configuration'),
       'file' => 'watchdog_alert.admin.inc',
     ),
     'admin/config/development/watchdog_alert/%/edit' => array(
-      'title' => 'Edit Alert',
+      'title' => 'Edit Alert Profile',
       'page callback' => 'drupal_get_form',
       'page arguments' => array('_watchdog_alert_edit_form', 4),
       'access arguments' => array('administer site configuration'),
       'file' => 'watchdog_alert.admin.inc',
     ),
     'admin/config/development/watchdog_alert/%/delete' => array(
-      'title' => 'Delete Alert',
+      'title' => 'Delete Alert Profile',
       'page callback' => 'drupal_get_form',
       'page arguments' => array('_watchdog_alert_delete_form', 4),
       'access arguments' => array('administer site configuration'),
       'file' => 'watchdog_alert.admin.inc',
     ),
-    'admin/config/development/watchdog_alert/dismiss/%/%' => array(
+    'admin/config/development/watchdog_alert/%/dismiss' => array(
       'title' => 'Dismiss Alert',
       'page callback' => '_watchdog_alert_dismiss_page',
-      'page arguments' => array(5, 6),
+      'page arguments' => array(4),
       'access arguments' => array('access site reports'),
       'file' => 'watchdog_alert.admin.inc',
     ),
   );
+}
+
+/**
+ * Implements hook_watchdog_alert_types().
+ */
+function watchdog_alert_watchdog_alert_types() {
+  try {
+    $types = _dblog_get_message_types();
+  }
+  catch (Exception $ex) {
+    $types = array();
+  }
+  $types[] = 'watchdog_alert';
+  return $types;
+}
+
+function watchdog_alert_get_types() {
+  return db_select('watchdog_alert_type', 't')
+          ->fields('t')
+          ->execute()
+          ->fetchAllKeyed();
+}
+
+function watchdog_alerts_add_type($type) {
+  db_merge('watchdog_alert_type')
+      ->key(array('type' => $type))
+      ->insertFields(array('type' => $type))
+      ->execute();
 }
