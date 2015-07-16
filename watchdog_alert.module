@@ -32,26 +32,7 @@ function watchdog_alert_page_build(&$page) {
     $alerts = watchdog_alert_get_alerts($user->uid);
 
     foreach ($alerts as $alert) {
-      if ($alert->auto_dismiss) {
-        $alert_message = t('Database Logging Alert: !message', array(
-          '!message' => theme('watchdog_alert_message', array('alert' => $alert)),
-        ));
-        _watchdog_alert_dismiss($alert, $dblog->wid);
-      }
-      else {
-        $dismiss_path = 'admin/config/development/watchdog_alert/'
-            . $alert->aid . '/dismiss';
-        $dismiss_options = array(
-          'query' => array('destination' => current_path()),
-        );
-        $dismiss_link = l(t('Dismiss'), $dismiss_path, $dismiss_options);
-        $alert_message = t('[!dismiss] Database Logging Alert: !message', array(
-          '!message' => theme('watchdog_alert_message', array('alert' => $alert)),
-          '!dismiss' => $dismiss_link,
-        ));
-      }
-      $type = _watchdog_alert_severity_to_type($dblog->severity);
-      drupal_set_message($alert_message, $type);
+      _watchdog_alert_show_alert($alert);
     }
   }
 }
@@ -74,7 +55,22 @@ function watchdog_alert_theme() {
  * Add watchdog events matching an alert profile to the database.
  */
 function watchdog_alert_watchdog($log_entry) {
-  //!variable_get('watchdog_alert_exclude_user_1', FALSE)
+  module_load_include('admin.inc', 'watchdog_alert');
+  $profiles = _watchdog_alert_get_profiles($log_entry['type'], $log_entry['severity']);
+  foreach ($profiles as $profile) {
+    if ($profile->dismiss_for_all) {
+      $uids = array(0);
+    }
+    else {
+      $uids = _watchdog_alert_get_uids_by_rid($profile->rid);
+      if (!variable_get('watchdog_alert_exclude_user_1', FALSE)) {
+        $uids[] = 1;
+      }
+    }
+    foreach ($uids as $uid) {
+      _watchdog_alert_save_alert($log_entry, $uid, $profile->pid, $profile->repeat_alert);
+    }
+  }
 }
 
 /**
@@ -134,6 +130,10 @@ function watchdog_alert_watchdog_alert_types() {
   return $types;
 }
 
+/**
+ * @return string[]
+ *   Keys are {watchdog_alert_type}.tid and values are the corresponding .type.
+ */
 function watchdog_alert_get_types() {
   return db_select('watchdog_alert_type', 't')
           ->fields('t')
@@ -141,6 +141,13 @@ function watchdog_alert_get_types() {
           ->fetchAllKeyed();
 }
 
+/**
+ * Add a watchdog event type to {watchdog_alert_type}.  If the type already
+ * exists, it will not add a second row.
+ *
+ * @param string $type
+ *   The type to add
+ */
 function watchdog_alerts_add_type($type) {
   db_merge('watchdog_alert_type')
       ->key(array('type' => $type))

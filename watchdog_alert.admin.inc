@@ -80,8 +80,76 @@ function _watchdog_alert_profiles() {
     ),
     'watchdog_alert_pager' => array('#theme' => 'pager'),
     'watchdog_alert_new' => drupal_get_form('_watchdog_alert_new_button_form'),
+    'watchdog_main_settings' => system_settings_form(_watchdog_alert_main_settings_form()),
   );
   return $build;
+}
+
+/**
+ * @return array
+ *   The form elements for the main settings of watchdog alert for passing to
+ *   system_settings_form()
+ */
+function _watchdog_alert_main_settings_form() {
+  $_1_day = 24 * 60 * 60;
+  $_2_days = 2 * 24 * 60 * 60;
+  $_1_week = 7 * 24 * 60 * 60;
+  $_2_weeks = 2 * 7 * 24 * 60 * 60;
+  $_4_weeks = 4 * 7 * 24 * 60 * 60;
+  $_6_months = 26 * 7 * 24 * 60 * 60;
+  $_1_year = 365 * 24 * 60 * 60;
+  return array(
+    'watchdog_alert_exclude_user_1' => array(
+      '#type' => 'checkbox',
+      '#title' => t('Exclude user 1 from receiving alerts.'),
+      '#description' => t('The default is to treat user 1 as belonging to all groups'),
+      '#default_value' => variable_get('watchdog_alert_exclude_user_1', FALSE),
+    ),
+    'watchdog_alert_expire' => array(
+      '#type' => 'select',
+      '#title' => t('Automatically dismiss alerts older than...'),
+      '#options' => array(
+        0 => t('Never'),
+        $_1_day => t('1 day'),
+        $_2_days => t('2 days'),
+        $_1_week => t('1 week'),
+        $_2_weeks => t('2 weeks'),
+        $_4_weeks => t('4 weeks'),
+        $_6_months => t('6 months'),
+        $_1_year => t('1 year'),
+      ),
+      '#default_value' => variable_get('watchdog_alert_expire', $_2_weeks),
+    ),
+    'watchdog_alert_store_max_user' => array(
+      '#type' => 'select',
+      '#title' => t('Limit the number of alerts per user to...'),
+      '#description' => t('When there are alerts exceeding this limit, older alerts will be dismissed.'),
+      '#options' => array(
+        10 => t('10'),
+        100 => t('100'),
+        1000 => t('1, 000'),
+        10000 => t('10, 000'),
+        100000 => t('100, 000'),
+        1000000 => t('1, 000, 000'),
+      ),
+      '#default_value' => variable_get('watchdog_alert_store_max_user', 100),
+    ),
+    'watchdog_alert_display_max' => array(
+      '#type' => 'select',
+      '#title' => t('Limit the number of alerts to display at once...'),
+      '#description' => t('When there are alerts exceeding this limit, newer alerts will be hidden until older alerts are dismissed.'),
+      '#options' => array(
+        0 => t('No limit'),
+        10 => t('10'),
+        20 => t('20'),
+        30 => t('30'),
+        50 => t('50'),
+        75 => t('75'),
+        100 => t('100'),
+      ),
+      '#default_value' => variable_get('watchdog_alert_display_max', 10),
+    ),
+  );
 }
 
 /**
@@ -161,7 +229,7 @@ function _watchdog_alert_edit_form($form, $form_state, $pid = NULL) {
     'repeat_alert' => array(
       '#type' => 'checkbox',
       '#title' => t('Show Repeated Alerts'),
-      '#description' => t('By default multiple events of the same kind with the same message are collapsed to a single alert.'),
+      '#description' => t('By default multiple events for the same profile are collapsed to a single alert showing the number of events that occured, and information from the latest event.'),
       '#default_value' => empty($profile['repeat_alert']) ? 0 : 1,
     ),
     'auto_dismiss' => array(
@@ -231,7 +299,7 @@ function _watchdog_alert_edit_form_submit(&$form, $form_state) {
  * Save an alert profile to the database.
  *
  * @param array $profile
- *   An array describing the alert profile with keys:
+ *   An associative array describing the alert profile containing:
  *   - pid: Optional.  If provided, this will update the alert profile with this
  *     id.  If omitted, a new alert profile will be created and assigned an id.
  *   - tid: The {watchdog_alert_type}.tid to filter for, or NULL for all types.
@@ -241,7 +309,7 @@ function _watchdog_alert_edit_form_submit(&$form, $form_state) {
  *   - dismiss_for_all: Whether one user dissmissing the alert should dismiss it
  *     for everyone.
  *
- * @return boolean
+ * @return bool
  *   TRUE for success
  */
 function watchdog_alert_save_profile($profile) {
@@ -305,48 +373,38 @@ function _watchdog_alert_delete_form_submit(&$form, $form_state) {
  *   The alert id
  */
 function watchdog_alert_delete_profile($pid) {
-  db_delete('watchdog_alert_alerts')
+  db_delete('watchdog_alert_profile')
       ->condition('pid', $pid)
       ->execute();
 }
 
 /**
- * Build an alert message and display it to the user if it's a new message or
- * the alert is set to repeat.
+ * Build an alert message and display it to the user.  If it's set to
+ * automatically dismiss, dismiss it.
  *
  * @param object $alert
  *   The alert object returned from the database
- * @param object $dblog
- *   The dblog object returned from the database
  */
-function _watchdog_alert_set_alert($alert, $dblog) {
-  module_load_include('admin.inc', 'dblog');
-  if (!$alert->repeat_alert) {
-    $displayed_alerts = &drupal_static(__FUNCTION__, array());
-    if (!isset($displayed_alerts[$alert->aid])) {
-      $displayed_alerts[$alert->aid] = array();
-    }
-    if (in_array($dblog->message, $displayed_alerts[$alert->aid])) {
-      return;
-    }
-    $displayed_alerts[$alert->aid][] = $dblog->message;
-  }
+function _watchdog_alert_show_alert($alert) {
   if ($alert->auto_dismiss) {
     $alert_message = t('Database Logging Alert: !message', array(
-      '!message' => theme('dblog_message', array('event' => $dblog, 'link' => TRUE)),
+      '!message' => theme('watchdog_alert_message', array('alert' => $alert)),
     ));
-    _watchdog_alert_dismiss($alert, $dblog->wid);
+    _watchdog_alert_dismiss($alert);
   }
   else {
-    $dismiss_path = 'admin/config/development/watchdog_alert/dismiss/'
-        . $alert->aid . "/" . $dblog->wid;
-    $dismiss_link = l(t('Dismiss'), $dismiss_path, array('query' => array('destination' => current_path())));
+    $dismiss_path = 'admin/config/development/watchdog_alert/'
+        . $alert->aid . '/dismiss';
+    $dismiss_options = array(
+      'query' => array('destination' => current_path()),
+    );
+    $dismiss_link = l(t('Dismiss'), $dismiss_path, $dismiss_options);
     $alert_message = t('[!dismiss] Database Logging Alert: !message', array(
-      '!message' => theme('dblog_message', array('event' => $dblog, 'link' => TRUE)),
+      '!message' => theme('watchdog_alert_message', array('alert' => $alert)),
       '!dismiss' => $dismiss_link,
     ));
   }
-  $type = _watchdog_alert_severity_to_type($dblog->severity);
+  $type = _watchdog_alert_severity_to_type($alert->severity);
   drupal_set_message($alert_message, $type);
 }
 
@@ -375,13 +433,15 @@ function _watchdog_alert_severity_to_type($severity) {
 }
 
 /**
- * Dismisss an alert.
+ * Dismisss an alert by removing it from the database.
  *
  * @param int $aid
  *   The alert id
  */
 function _watchdog_alert_dismiss($aid) {
-
+  db_delete('watchdog_alert')
+      ->condition('aid', $aid)
+      ->execute();
 }
 
 /**
@@ -413,7 +473,15 @@ function watchdog_alert_get_alerts($uid = Null) {
       ->fields('p')
       ->fields('a');
   if (!is_null($uid)) {
-    $query->condition('a.uid', array($uid, 0));
+    $user = user_load($uid);
+    $roles = array_keys($user->roles);
+    $query->condition(db_or()
+            ->condition('a.uid', $uid)
+            ->condition(db_and()
+                ->condition('a.uid', 0)
+                ->condition('p.rid', $roles)
+            )
+    );
   }
   return $query->execute()->fetchAll();
 }
@@ -423,7 +491,14 @@ function watchdog_alert_get_alerts($uid = Null) {
  * configured time.
  */
 function _watchdog_alert_remove_expired() {
-
+  $_2_weeks = 2 * 7 * 24 * 60 * 60;
+  $expire = variable_get('watchdog_alert_expire', $_2_weeks);
+  if ($expire == 0) {
+    return;
+  }
+  db_delete('watchdog_alert')
+      ->condition('timestamp', time() - $expire, '<')
+      ->execute();
 }
 
 /**
@@ -431,15 +506,25 @@ function _watchdog_alert_remove_expired() {
  * have the 'access site reports' permission.
  */
 function _watchdog_alert_remove_no_access() {
-
+  $users_with_access = db_select('users', 'u')
+      ->fields('u', array('uid'));
+  $users_with_access->leftJoin('users_roles', 'r', 'u.uid = r.uid');
+  $users_with_access->leftJoin('role_permission', 'p', 'r.rid = p.rid');
+  $users_with_access->condition('p.permission', 'access site reports');
+  db_delete('watchdog_alert')
+      ->condition('uid', $users_with_access, 'NOT IN')
+      ->condition('uid', 1, "!=")
+      ->execute();
 }
 
 /**
  * Remove alerts from the table which exceed the configured per user alert
  * limit.
+ *
+ * @todo Actually do this.
  */
 function _watchdog_alert_remove_over_limit() {
-
+  $limit = variable_get('watchdog_alert_store_max_user', 100);
 }
 
 /**
@@ -533,6 +618,9 @@ function theme_watchdog_alert_message($variables) {
     return '';
   }
   $output = '<span class="watchdog-alert-severity-' . $variables->severity . '">';
+  if($alert->count > 1){
+    $output .= '<span class="watchdog-alert-count">(' . $alert->count . ')</span> ';
+  }
   $output .= '<span class="watchdog-alert-type">' . $alert->type . '</span>' . ": ";
   if (is_null(unserialize($alert->variables))) {
     $output .= $alert->message;
@@ -542,4 +630,97 @@ function theme_watchdog_alert_message($variables) {
   }
   $output .= '</span>';
   return $output;
+}
+
+/**
+ * @param string $type
+ *   The type to match
+ * @param int $severity
+ *   The severity to match
+ *
+ * @return object[]
+ *   An array of profile objects that match the parameters given
+ */
+function _watchdog_alert_get_profiles($type, $severity) {
+  $tid = db_select('watchdog_alert_type', 't')
+      ->fields('t', array('tid'))
+      ->condition('type', $type);
+  $profiles = db_select('watchdog_alert_profile', 'p')
+      ->fields('p')
+      ->condition(db_or()
+          ->condition('p.tid', $tid)
+          ->isNull('p.tid')
+      )
+      ->condition('severities', pow(2, $severity), '&')
+      ->execute()
+      ->fetchAll();
+  return $profiles;
+}
+
+/**
+ * @param int $rid
+ *   The role id
+ *
+ * @return int[]
+ *   An array of uids that have the role specified
+ */
+function _watchdog_alert_get_uids_by_rid($rid) {
+  return db_select('users_roles', 'ur')
+          ->fields('ur', array('uid'))
+          ->distinct()
+          ->condition('rid', $rid)
+          ->execute()
+          ->fetchCol();
+}
+
+/**
+ * Save an alert to the databse. If $repeat_alert is true, a new alert will
+ * always be generated.  Otherwise, a new alert will be generated only if there
+ * is not already an alert matching both $uid and $pid.  If such an alert exists
+ * it will be updated according to $log_entry, and its count will be
+ * incremented.
+ *
+ * @param array $log_entry
+ *   A log entry array from hook_watchdog().
+ * @param int $uid
+ *   The id of the user to whom the message should be shown.  A value of 0 is
+ *   used to show this alert to all members of the role associated with the
+ *   alert profile, which means that any member can dismiss it for everyone.
+ * @param int $pid
+ *   The id of the profile generating this alert.
+ * @param bool $repeat_alert
+ *
+ */
+function _watchdog_alert_save_alert($log_entry, $uid, $pid, $repeat_alert) {
+  $tid = db_select('watchdog_alert_type', 't')
+      ->fields('t', array('tid'))
+      ->condition('type', $log_entry['type'])
+      ->execute()
+      ->fetchField();
+  $alert = array(
+    'pid' => $pid,
+    'uid' => $uid,
+    'tid' => $tid,
+    'message' => $log_entry['message'],
+    'variables' => serialize($log_entry['variables']),
+    'severity' => $log_entry['severity'],
+    'link' => substr($log_entry['link'], 0, 255),
+    'trigger_uid' => $log_entry['uid'],
+    'request_uri' => $log_entry['request_uri'],
+    'referer' => $log_entry['referer'],
+    'ip' => substr($log_entry['ip'], 0, 128),
+    'timestamp' => $log_entry['timestamp'],
+  );
+  if ($repeat_alert) {
+    db_insert('watchdog_alert', 'a')
+        ->fields($alert)
+        ->execute();
+  }
+  else {
+    db_merge('watchdog_alert', 'a')
+        ->key(array('pid' => $pid, 'uid' => $uid))
+        ->fields($alert)
+        ->expression('count', 'count + :inc', array(':inc' => 1))
+        ->execute();
+  }
 }
